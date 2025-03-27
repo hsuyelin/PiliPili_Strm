@@ -22,7 +22,14 @@ pub enum LogLevel {
 }
 
 impl fmt::Display for LogLevel {
-
+ 
+    /// Formats the LogLevel for display purposes
+    ///
+    /// # Arguments
+    /// * `f` - The formatter to write to
+    ///
+    /// # Returns
+    /// `fmt::Result` indicating success or failure of the operation
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let level_str = match *self {
             LogLevel::Error => "Error",
