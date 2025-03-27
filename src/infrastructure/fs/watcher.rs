@@ -17,7 +17,7 @@ use tokio_stream::{
 };
 use ctrlc;
 
-use crate::{error_log, info_log};
+use crate::{error_log, info_log, warn_log};
 use super::{
     watcher_state::WatcherState,
     watcher_callback::FileWatcherCallback,
@@ -64,7 +64,8 @@ impl FileWatcher {
     ///
     /// # Arguments
     /// * `path` - Path to watch (supports tilde expansion)
-    /// * `debounce_time` - Minimum delay between processing events
+    /// * `debounce_time` - Minimum delay between processing events 
+    /// (will be clamped to at least 2 seconds if lower value provided)
     ///
     /// # Notes
     /// - Watcher starts in Stopped state (call `resume()` to begin watching)
@@ -74,6 +75,15 @@ impl FileWatcher {
         debounce_time: Duration
     ) -> Self {
         let path = PathHelper::expand_tilde(path.as_ref());
+        let debounce_time = if debounce_time < Duration::from_secs(2) {
+            warn_log!(
+                WATCHER_LOGGER_DOMAIN, 
+                "Debounce time can't be less than 2s. Adjusted to 2s."
+            );
+            Duration::from_secs(2)
+        } else {
+            debounce_time
+        };
         let (event_tx, event_rx) = channel(100);
 
         Self {
@@ -188,7 +198,8 @@ impl FileWatcher {
 
         let debounce_time = self.debounce_time;
         let callback = self.callback.clone();
-        let event_rx = self.event_rx.take().expect("Event receiver already taken");
+        let event_rx = self.event_rx.take()
+            .expect("Event receiver already taken");
         let should_exit = self.should_exit.clone();
 
         let handle = tokio::spawn(async move {
