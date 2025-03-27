@@ -1,4 +1,5 @@
 use notify::EventKind;
+
 use crate::infrastructure::fs::WatcherState;
 
 /// A trait defining the interface for file system watchers
