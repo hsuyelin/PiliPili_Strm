@@ -25,21 +25,50 @@ use super::{
     path_helper::PathHelper,
 };
 
+/// Domain identifier for file watcher logs
 const WATCHER_LOGGER_DOMAIN: &str = "[WATCHER]";
 
+/// A robust filesystem watcher with debounce support and graceful shutdown
+///
+/// This watcher provides:
+/// - Configurable debounce period for event processing
+/// - Graceful handling of Ctrl+C signals
+/// - State management (Running/Paused/Stopped)
+/// - Automatic directory creation
+/// - Thread-safe operation
 pub struct FileWatcher {
+
+    /// The path being watched (expanded with tilde if needed)
     path: PathBuf,
+    /// Underlying notify watcher instance
     watcher: Option<RecommendedWatcher>,
+    /// Current operational state
     state: WatcherState,
+    /// Callback for processing filesystem events
     callback: Option<FileWatcherCallback>,
+    /// Debounce period for event processing
     debounce_time: Duration,
+    /// Channel sender for raw filesystem events
     event_tx: Sender<Event>,
+    /// Channel receiver for event processing
     event_rx: Option<Receiver<Event>>,
+    /// Handle to the async event processing task
     worker_handle: Option<tokio::task::JoinHandle<()>>,
+    /// Atomic flag for graceful shutdown
     should_exit: Arc<AtomicBool>,
 }
 
 impl FileWatcher {
+
+    /// Creates a new FileWatcher instance
+    ///
+    /// # Arguments
+    /// * `path` - Path to watch (supports tilde expansion)
+    /// * `debounce_time` - Minimum delay between processing events
+    ///
+    /// # Notes
+    /// - Watcher starts in Stopped state (call `resume()` to begin watching)
+    /// - Path will be created if it doesn't exist when watching starts
     pub fn new<P: AsRef<Path>>(
         path: P,
         debounce_time: Duration
@@ -60,6 +89,15 @@ impl FileWatcher {
         }
     }
 
+    /// Sets up Ctrl+C handler for graceful shutdown
+    ///
+    /// # Returns
+    /// - `Ok(())` if handler was registered successfully
+    /// - `Err(ctrlc::Error)` if handler registration failed
+    ///
+    /// # Notes
+    /// - Sets the `should_exit` flag when triggered
+    /// - Should be called before starting the watcher
     pub fn setup_ctrlc_handler(&self) -> Result<(), ctrlc::Error> {
         let should_exit = self.should_exit.clone();
         ctrlc::set_handler(move || {
@@ -68,10 +106,24 @@ impl FileWatcher {
         })
     }
 
+    /// Checks if shutdown was requested
+    ///
+    /// # Returns
+    /// `true` if graceful shutdown was requested (via Ctrl+C)
     pub fn get_should_exit(&self) -> bool {
         self.should_exit.load(Ordering::Relaxed)
     }
 
+    /// Initializes the filesystem watcher
+    ///
+    /// # Returns
+    /// - `Ok(())` if watcher was initialized successfully
+    /// - `Err(String)` with error message if initialization failed
+    ///
+    /// # Notes
+    /// - Creates directory if it doesn't exist
+    /// - Starts event processing task
+    /// - Only effective when in Stopped state
     fn init_watcher(&mut self) -> Result<(), String> {
         if self.state != WatcherState::Stopped {
             return Ok(());
@@ -123,6 +175,12 @@ impl FileWatcher {
         Ok(())
     }
 
+    /// Starts the async event processing task
+    ///
+    /// # Notes
+    /// - Implements debounce logic
+    /// - Only processes the last event in each debounce window
+    /// - Checks for shutdown signal periodically
     fn start_event_processor(&mut self) {
         if self.worker_handle.is_some() {
             return;
@@ -164,11 +222,22 @@ impl FileWatcher {
 }
 
 impl FileWatchable for FileWatcher {
-    
+
+    /// Gets the current watcher state
     fn get_state(&self) -> WatcherState {
         self.state.clone()
     }
     
+    /// Resumes or starts watching
+    ///
+    /// # Returns
+    /// - `Ok(())` if operation succeeded
+    /// - `Err(String)` with error message if failed
+    ///
+    /// # Notes
+    /// - If Stopped, initializes a new watcher
+    /// - If Paused, resumes watching
+    /// - If Running, no effect
     fn resume(&mut self) -> Result<(), String> {
         if self.state == WatcherState::Paused {
             self.state = WatcherState::Running;
@@ -181,6 +250,11 @@ impl FileWatchable for FileWatcher {
         }
     }
 
+    /// Pauses watching
+    ///
+    /// # Notes
+    /// - Only effective when in Running state
+    /// - Maintains watch configuration while paused
     fn pause(&mut self) {
         if self.state == WatcherState::Running {
             self.state = WatcherState::Paused;
@@ -188,6 +262,12 @@ impl FileWatchable for FileWatcher {
         }
     }
 
+    /// Stops watching and releases resources
+    ///
+    /// # Notes
+    /// - Aborts the event processing task
+    /// - Drops the underlying watcher
+    /// - Cannot be resumed after stopping
     fn stop(&mut self) {
         if self.state != WatcherState::Stopped {
             self.state = WatcherState::Stopped;
@@ -202,6 +282,14 @@ impl FileWatchable for FileWatcher {
         }
     }
 
+    /// Sets the event callback
+    ///
+    /// # Arguments
+    /// * `callback` - Function to call when events occur
+    ///
+    /// # Notes
+    /// - Replaces any existing callback
+    /// - Callback must be thread-safe
     fn set_callback<F>(&mut self, callback: F)
     where
         F: Fn(EventKind) + Send + Sync + 'static,
@@ -211,6 +299,8 @@ impl FileWatchable for FileWatcher {
 }
 
 impl Drop for FileWatcher {
+
+    /// Ensures clean shutdown when watcher is dropped
     fn drop(&mut self) {
         self.stop();
     }

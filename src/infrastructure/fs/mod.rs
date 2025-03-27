@@ -1,3 +1,18 @@
+//! File system watching infrastructure
+//!
+//! This module provides a complete solution for monitoring filesystem changes with:
+//! - Cross-platform support
+//! - Configurable watching behavior
+//! - Thread-safe operation
+//! - State management
+//!
+//! # Core Components
+//! - [`Watcher`] - The main filesystem watcher implementation
+//! - [`WatcherState`] - Tracks the operational state (Running/Paused/Stopped)
+//! - [`FileWatcherCallback`] - Handles event notifications
+//! - [`FileWatchable`] - Trait defining the watcher interface
+//! - [`PathHelper`] - Utilities for path manipulation
+
 pub mod watcher;
 pub mod watcher_state;
 pub mod watcher_callback;
