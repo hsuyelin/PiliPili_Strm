@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     LoggerBuilder::default()
         .init();
 
-    let watch_path = PathBuf::from("/Users/hsuyelin/Downloads/Tests");
+    let watch_path = PathBuf::from("~/Downloads/Tests");
 
     if !watch_path.exists() {
         std::fs::create_dir_all(&watch_path)?;

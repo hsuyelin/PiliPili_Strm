@@ -3,7 +3,11 @@
 //! This module implements a plugin that logs network requests in curl command format,
 //! making it easy to reproduce requests for debugging or testing purposes.
 
-use reqwest::{Request, Response, Error};
+use reqwest::{
+    Request, 
+    Response, 
+    Error
+};
 
 use crate::{debug_log, error_log};
 use super::plugin::NetworkPlugin;

@@ -3,7 +3,10 @@
 //! This module provides an enum representing the standard HTTP methods
 //! supported by the network system.
 
-use std::fmt::{self, Display};
+use std::fmt::{
+    self, 
+    Display
+};
 
 /// Represents the HTTP method to be used in a network request.
 #[derive(Debug, Clone, Copy)]

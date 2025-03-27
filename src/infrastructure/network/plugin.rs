@@ -3,7 +3,11 @@
 //! This module provides a trait that allows for custom processing of network requests,
 //! responses, and errors through a plugin system.
 
-use reqwest::{Request, Response, Error};
+use reqwest::{
+    Request, 
+    Response, 
+    Error
+};
 
 /// Defines the interface for network request/response plugins.
 /// 

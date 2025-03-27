@@ -1,6 +1,13 @@
 use std::fmt::Debug;
 use time::UtcOffset;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
+
+use tracing_subscriber::{
+    fmt, 
+    layer::SubscriberExt, 
+    util::SubscriberInitExt, 
+    EnvFilter, 
+    Registry
+};
 
 use super::{LogLevel, LogRotation};
 

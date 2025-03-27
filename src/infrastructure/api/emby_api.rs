@@ -1,7 +1,13 @@
 use std::collections::HashMap;
 
-use crate::infrastructure::network::{HttpMethod, NetworkTask, NetworkTarget};
-use crate::infrastructure::config::Config;
+use crate::infrastructure::{
+    network::{
+        HttpMethod, 
+        NetworkTask, 
+        NetworkTarget
+    },
+    config::Config
+};
 
 pub enum EmbyAPI {
     GetUser { user_id: String },

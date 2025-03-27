@@ -3,8 +3,10 @@
 //! This module provides a trait that defines the structure of a network request target,
 //! including the base URL, path, HTTP method, and request task.
 
-use super::http_method::HttpMethod;
-use super::task::NetworkTask;
+use super::{
+    http_method::HttpMethod,
+    task::NetworkTask
+};
 
 /// Defines the interface for a network request target.
 /// 

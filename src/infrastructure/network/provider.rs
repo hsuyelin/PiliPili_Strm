@@ -3,13 +3,18 @@
 //! This module implements the core network provider that handles HTTP requests,
 //! including request building, sending, and plugin integration.
 
-use reqwest::{Client, Method};
+use reqwest::{
+    Client, 
+    Method
+};
 use once_cell::sync::Lazy;
 
-use super::http_method::HttpMethod;
-use super::plugin::NetworkPlugin;
-use super::task::NetworkTask;
-use super::target::NetworkTarget;
+use super::{
+    http_method::HttpMethod,
+    plugin::NetworkPlugin,
+    task::NetworkTask,
+    target::NetworkTarget
+};
 
 /// A static HTTP client instance configured with default settings.
 /// 

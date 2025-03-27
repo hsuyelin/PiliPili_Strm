@@ -13,9 +13,9 @@ pub mod provider;
 pub mod plugin;
 pub mod curl_plugin;
 
-pub use http_method::HttpMethod;
-pub use task::NetworkTask;
-pub use target::NetworkTarget;
-pub use provider::NetworkProvider;
-pub use plugin::NetworkPlugin;
-pub use curl_plugin::CurlPlugin;
+pub use http_method::*;
+pub use task::*;
+pub use target::*;
+pub use provider::*;
+pub use plugin::*;
+pub use curl_plugin::*;

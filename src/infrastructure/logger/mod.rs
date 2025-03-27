@@ -11,6 +11,6 @@ pub mod rotation;
 pub mod level;
 pub mod macros;
 
-pub use builder::LoggerBuilder;
-pub use rotation::LogRotation;
-pub use level::LogLevel;
+pub use builder::*;
+pub use rotation::*;
+pub use level::*;
