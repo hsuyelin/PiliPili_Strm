@@ -118,12 +118,16 @@ impl DirSyncHelper {
         if self.config.get_destination_dir().contains('@') {
             self.config.get_destination_dir()
         } else if let Some(ssh_config) = &self.config.get_ssh_config() {
-            format!(
+            let base_path = format!(
                 "{}@{}:{}",
                 ssh_config.username(),
                 ssh_config.ip(),
                 self.config.get_destination_dir()
-            )
+            );
+            if ssh_config.port() != 22 {
+                return format!("{} -p {}", base_path, ssh_config.port());
+            }
+            base_path
         } else {
             self.config.get_destination_dir()
         }
