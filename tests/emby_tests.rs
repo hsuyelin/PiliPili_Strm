@@ -3,10 +3,11 @@ mod tests {
     
     use tokio;
 
-    use pilipili_strm::infrastructure::api::*;
-    use pilipili_strm::infrastructure::logger::builder::LoggerBuilder;
-    use pilipili_strm::infrastructure::logger::LogLevel;
-    use pilipili_strm::infrastructure::network::*;
+    use pilipili_strm::infrastructure::{
+        api::*,
+        network::*,
+        logger::{builder::LoggerBuilder, LogLevel},
+    };
 
     #[tokio::test]
     async fn test_emby_api_request_with_provider() {
