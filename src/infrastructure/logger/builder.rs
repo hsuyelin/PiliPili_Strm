@@ -81,7 +81,7 @@ impl LoggerBuilder {
             .with_target(false)
             .with_file(true)
             .with_line_number(true)
-            .with_thread_names(true)
+            .with_thread_names(false)
             .with_thread_ids(false);
 
         Registry::default()

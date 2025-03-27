@@ -4,5 +4,5 @@ pub mod infrastructure {
     pub mod database;
     pub mod logger;
     pub mod network;
-    pub mod strm;
+    pub mod fs;
 }
