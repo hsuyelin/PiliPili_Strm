@@ -134,63 +134,94 @@ impl DirSyncHelper {
     /// - Configures strict mode if enabled
     /// - Logs the final command for debugging
     fn build_rsync_command(&self) -> Result<Command, Error> {
-        let mut cmd = Command::new("rsync");
-        cmd.arg("-a")            // Archive mode (preserve attributes)
-            .arg("--info=progress2")  // Show progress information
-            .arg("-v");          // Verbose output
+        // Get synchronization configuration by cloning from self
+        let sync_config = self.config.clone();
 
-        // Configure SSH options if needed
-        let source_ssh = self.config.get_source().to_rsync_arg();
-        let dest_ssh = self.config.get_destination().to_rsync_arg();
+        // Extract destination, source, and other config parameters
+        let dest_config = sync_config.get_destination();
+        let source_config = sync_config.get_source();
+        let strict_mode = sync_config.get_strict_mode();
+        let include_suffixes = sync_config.get_include_suffixes();
+        let exclude_suffixes = sync_config.get_exclude_suffixes();
+        let exclude_regex = sync_config.get_exclude_regex();
 
-        // Prefer destination SSH config if both exist
-        if let Some(ssh_arg) = dest_ssh {
-            cmd.arg("-e").arg(ssh_arg);
-        } else if let Some(ssh_arg) = source_ssh {
-            cmd.arg("-e").arg(ssh_arg);
+        // Check if SSH password authentication should be used
+        let (use_sshpass, password) = dest_config.ssh_config()
+            .and_then(|cfg| cfg.get_password())
+            .map(|pwd| (!pwd.is_empty(), pwd))
+            .unwrap_or((false, ""));
+
+        // Initialize the base command - either sshpass-wrapped rsync or direct rsync
+        let mut cmd = if use_sshpass {
+            let mut sshpass_cmd = Command::new("sshpass");
+            sshpass_cmd
+                .arg("-p")
+                .arg(password)
+                .arg("rsync");
+            sshpass_cmd
+        } else {
+            Command::new("rsync")
+        };
+
+        // Add common rsync arguments:
+        // -a: archive mode (recursive, preserve permissions, etc.)
+        // --info=progress2: show progress information
+        // -v: verbose output
+        cmd.arg("-a")
+            .arg("--info=progress2")
+            .arg("-v");
+
+        // Add SSH configuration if not using sshpass
+        if !use_sshpass {
+            if let Some(ssh_arg) = dest_config.to_rsync_arg()
+                .or_else(|| source_config.to_rsync_arg())
+            {
+                cmd.arg("-e").arg(ssh_arg);  // -e: specify remote shell to use
+            }
         }
 
-        // Configure strict mode (delete extraneous files)
-        if self.config.get_strict_mode() {
+        // Add --delete flag if in strict mode (removes files in dest not present in source)
+        if strict_mode {
             cmd.arg("--delete");
         }
 
-        // Handle include/exclude filters
-        if !self.config.get_include_suffixes().is_empty() {
-            cmd.arg("--include=*/");  // Always include directories
-            for suffix in &self.config.get_include_suffixes() {
+        // Handle file inclusion/exclusion patterns
+        if !include_suffixes.is_empty() {
+            // First include all directories
+            cmd.arg("--include=*/");
+            // Then include files with specified suffixes
+            for suffix in include_suffixes {
                 cmd.arg(format!("--include=*.{}", suffix));
             }
-            cmd.arg("--exclude=*");  // Exclude everything else
-        } else if !self.config.get_exclude_suffixes().is_empty() {
-            for suffix in &self.config.get_exclude_suffixes() {
+            // Exclude everything else
+            cmd.arg("--exclude=*");
+        } else if !exclude_suffixes.is_empty() {
+            // Just exclude files with specified suffixes
+            for suffix in exclude_suffixes {
                 cmd.arg(format!("--exclude=*.{}", suffix));
             }
         }
 
-        // Handle regex excludes
-        if let Some(regex) = &self.config.get_exclude_regex() {
-            if let Ok(_re) = Regex::new(regex.as_str()) {
-                cmd.arg(format!("--exclude={}", regex.as_str()));
+        // Handle regex-based exclusions if provided
+        if let Some(regex) = exclude_regex {
+            if Regex::new(regex.as_str()).is_ok() {
+                cmd.arg(format!("--exclude={}", regex));
             } else {
                 warn_log!(
-                    DIR_SYNC_LOGGER_DOMAIN, 
-                    format!(
-                        "Warning: Invalid regex pattern '{}', \
-                        skipping exclude rule.",
-                        regex.as_str()
-                    )
-                );
+                DIR_SYNC_LOGGER_DOMAIN, 
+                format!("Invalid regex pattern '{}'", regex)
+            );
             }
         }
 
-        // Set source and destination paths
-        let source_path = self.config.get_source().get_path();
-        let dest_path = self.config.get_destination().get_path();
-        cmd.arg(&source_path).arg(&dest_path);
+        // Add source and destination paths to the command
+        cmd.arg(source_config.get_path())
+            .arg(dest_config.get_path());
 
+        // Print the command for debugging/logging purposes
         self.print_sync_command(&mut cmd);
 
+        // Return the constructed command
         Ok(cmd)
     }
 
@@ -213,7 +244,6 @@ impl DirSyncHelper {
     /// - Other arguments are joined with simple spaces
     /// - Output is logged at debug level with DIR_SYNC domain
     fn print_sync_command(&self, cmd: &mut Command) {
-        // Format command for logging
         let mut cmd_parts = vec![cmd.get_program().to_string_lossy().into_owned()];
         let args: Vec<_> = cmd
             .get_args()
@@ -252,7 +282,6 @@ impl DirSyncHelper {
         let stderr_reader = BufReader::new(stderr);
         let mut stderr_output = String::new();
 
-        // Process stdout line by line
         for line in stdout_reader.lines() {
             let line = line?;
             match () {
