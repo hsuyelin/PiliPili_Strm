@@ -23,6 +23,7 @@ pub mod file_helper;
 pub mod ssh_config;
 pub mod dir_sync_config;
 pub mod dir_sync_helper;
+pub mod dir_location;
 
 pub use watcher::*;
 pub use watcher_callback::*;
@@ -33,3 +34,4 @@ pub use file_helper::*;
 pub use ssh_config::*;
 pub use dir_sync_config::*;
 pub use dir_sync_helper::*;
+pub use dir_location::*;

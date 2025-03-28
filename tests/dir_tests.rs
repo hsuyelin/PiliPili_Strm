@@ -6,9 +6,24 @@ mod tests {
     use pilipili_strm::infrastructure::fs::*;
 
     fn mock_config(source: &str, destination: &str) -> DirSyncConfig {
-        DirSyncConfig::new(source, destination)
+        DirSyncConfig::builder()
+            .with_source(DirLocation::new(source, true, None))
+            .with_destination(DirLocation::new(destination, true, None))
             .with_strict_mode(false)
-            .with_suffixes(vec![])
+            .with_include_suffixes(vec!["strm"])
+            .with_exclude_suffixes(vec!["aac", "ape", "flac"])
+    }
+    
+    fn mock_server_config(source: &str, destination: &str) -> DirSyncConfig {
+        let ssh_config = SshConfig::builder()
+            .with_username("root".to_string())
+            .with_password("123456".to_string())
+            .with_ip("127.0.0.1".to_string());
+        DirSyncConfig::builder()
+            .with_source(DirLocation::new(source, true, None))
+            .with_destination(DirLocation::new(destination, true, Some(ssh_config)))
+            .with_strict_mode(false)
+            .with_exclude_suffixes(vec!["aac", "ape", "flac"])
     }
 
     #[test]
@@ -60,15 +75,29 @@ mod tests {
         let mut config = mock_config("/tmp/source/", "/tmp/dest/");
         let guard_file_option: Option<String> = Some("/nonexistent/guard.txt".to_string());
         if let Some(guard_file) = guard_file_option {
-            config.set_guard_file(&guard_file);
+            config = config.with_guard_file(&guard_file);
         }
-        
-        let sync_helper = DirSyncHelper::new(config);
+
+        let sync_helper = DirSyncHelper::new(config.clone());
 
         let result = sync_helper.sync();
         assert!(result.is_err(), "Sync should fail when guard file does not exist");
         if let Err(e) = result {
             assert!(e.to_string().contains("Guard file '/nonexistent/guard.txt' does not exist"));
         }
+    }
+    
+    #[test]
+    fn test_server_sync_with_callbacks() {
+        let source_dir = tempfile::tempdir().unwrap();
+        let dest_dir = tempfile::tempdir().unwrap();
+
+        let config = mock_server_config(
+            source_dir.path().to_str().unwrap(),
+            dest_dir.path().to_str().unwrap(),
+        );
+        let sync_helper = DirSyncHelper::new(config);
+
+        let _ = sync_helper.sync();
     }
 }

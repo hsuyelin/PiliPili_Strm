@@ -1,18 +1,22 @@
 use std::{
     process::{Command, Stdio},
     io::{BufReader, BufRead},
-    path::Path
+    path::Path,
 };
-
-use anyhow::anyhow;
+use anyhow::{Result, anyhow, Error};
 use regex::Regex;
 
-use crate::infrastructure::fs::dir_sync_config::DirSyncConfig;
+use crate::{info_log, debug_log, warn_log};
+use super::dir_sync_config::DirSyncConfig;
+
+/// Domain identifier for file sync logs
+const DIR_SYNC_LOGGER_DOMAIN: &str = "[DIR-SYNC]";
 
 type ProgressCallback = Box<dyn Fn(&str) + Send + 'static>;
 type FileSyncCallback = Box<dyn Fn(&str) + Send + 'static>;
 
 pub struct DirSyncHelper {
+
     config: DirSyncConfig,
     progress_callback: Option<ProgressCallback>,
     file_sync_callback: Option<FileSyncCallback>,
@@ -21,7 +25,7 @@ pub struct DirSyncHelper {
 impl DirSyncHelper {
 
     pub fn new(config: DirSyncConfig) -> Self {
-        DirSyncHelper { 
+        DirSyncHelper {
             config,
             progress_callback: None,
             file_sync_callback: None,
@@ -36,15 +40,11 @@ impl DirSyncHelper {
         self.file_sync_callback = Some(callback);
     }
 
-    pub fn sync(&self) -> Result<(), anyhow::Error> {
+    pub fn sync(&self) -> Result<(), Error> {
         self.check_guard_file()?;
         self.check_source_dir()?;
 
-        let mut cmd = self.build_rsync_command();
-        let source = self.config.get_source_dir();
-        let destination = self.get_destination_path();
-
-        cmd.arg(&source).arg(&destination);
+        let mut cmd = self.build_rsync_command()?;
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
         let mut child = cmd.spawn()?;
@@ -65,7 +65,7 @@ impl DirSyncHelper {
         Ok(())
     }
 
-    fn check_guard_file(&self) -> Result<(), anyhow::Error> {
+    fn check_guard_file(&self) -> Result<(), Error> {
         if let Some(guard) = &self.config.get_guard_file() {
             if !Path::new(guard).exists() {
                 return Err(anyhow!("Guard file '{}' does not exist, sync aborted.", guard));
@@ -74,84 +74,114 @@ impl DirSyncHelper {
         Ok(())
     }
 
-    fn check_source_dir(&self) -> Result<(), anyhow::Error> {
-        let source = self.config.get_source_dir();
-        if !Path::new(&source).exists() {
-            return Err(anyhow!("Source path '{}' does not exist, sync aborted.", source));
+    fn check_source_dir(&self) -> Result<(), Error> {
+        let source_path = self.config.get_source().get_path();
+        if self.config.get_source().ssh_config().is_none() && 
+            !Path::new(&source_path).exists() {
+            return Err(anyhow!("Source path '{}' does not exist, sync aborted.", source_path));
         }
         Ok(())
     }
 
-    fn build_rsync_command(&self) -> Command {
+    fn build_rsync_command(&self) -> Result<Command, Error> {
         let mut cmd = Command::new("rsync");
         cmd.arg("-a")
-            .arg("--progress")
+            .arg("--info=progress2")
             .arg("-v");
 
-        if let Some(ssh_config) = &self.config.get_ssh_config() {
-            cmd.arg("-e").arg(ssh_config.to_rsync_arg());
+        let source_ssh = self.config.get_source().to_rsync_arg();
+        let dest_ssh = self.config.get_destination().to_rsync_arg();
+
+        if let Some(ssh_arg) = dest_ssh {
+            cmd.arg("-e").arg(ssh_arg);
+        } else if let Some(ssh_arg) = source_ssh {
+            cmd.arg("-e").arg(ssh_arg);
         }
 
         if self.config.get_strict_mode() {
             cmd.arg("--delete");
         }
 
-        for suffix in &self.config.get_suffixes() {
-            cmd.arg(format!("--exclude=*.{}", suffix));
+        if !self.config.get_include_suffixes().is_empty() {
+            cmd.arg("--include=*/");
+            for suffix in &self.config.get_include_suffixes() {
+                cmd.arg(format!("--include=*.{}", suffix));
+            }
+            cmd.arg("--exclude=*");
+        } else if !self.config.get_exclude_suffixes().is_empty() {
+            for suffix in &self.config.get_exclude_suffixes() {
+                cmd.arg(format!("--exclude=*.{}", suffix));
+            }
         }
 
-        if let Some(regex) = &self.config.get_ignore_regex() {
-            if Regex::new(regex.as_str()).is_ok() {
+        if let Some(regex) = &self.config.get_exclude_regex() {
+            if let Ok(_re) = Regex::new(regex.as_str()) {
                 cmd.arg(format!("--exclude={}", regex.as_str()));
             } else {
-                println!(
-                    "Warning: Invalid regex pattern '{}', skipping exclude rule.",
-                    regex.as_str()
+                warn_log!(
+                    DIR_SYNC_LOGGER_DOMAIN, 
+                    format!(
+                        "Warning: Invalid regex pattern '{}', \
+                        skipping exclude rule.",
+                        regex.as_str()
+                    )
                 );
             }
         }
 
-        cmd
-    }
+        let source_path = self.config.get_source().get_path();
+        let dest_path = self.config.get_destination().get_path();
+        cmd.arg(&source_path).arg(&dest_path);
 
-    fn get_destination_path(&self) -> String {
-        if self.config.get_destination_dir().contains('@') {
-            self.config.get_destination_dir()
-        } else if let Some(ssh_config) = &self.config.get_ssh_config() {
-            let base_path = format!(
-                "{}@{}:{}",
-                ssh_config.username(),
-                ssh_config.ip(),
-                self.config.get_destination_dir()
-            );
-            if ssh_config.port() != 22 {
-                return format!("{} -p {}", base_path, ssh_config.port());
+        let mut cmd_parts = vec![cmd.get_program().to_string_lossy().into_owned()];
+        let args: Vec<_> = cmd
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let mut i = 0;
+        while i < args.len() {
+            if args[i] == "-e" && i + 1 < args.len() {
+                cmd_parts.push(format!("-e \"{}\"", args[i + 1]));
+                i += 2;
+            } else {
+                cmd_parts.push(args[i].clone());
+                i += 1;
             }
-            base_path
-        } else {
-            self.config.get_destination_dir()
         }
+        let cmd_string = cmd_parts.join(" ");
+        debug_log!(DIR_SYNC_LOGGER_DOMAIN, format!("Executing command: {}", cmd_string));
+
+        Ok(cmd)
     }
 
     fn process_output(
         &self,
         stdout: std::process::ChildStdout,
         stderr: std::process::ChildStderr,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), Error> {
         let stdout_reader = BufReader::new(stdout);
         let stderr_reader = BufReader::new(stderr);
         let mut stderr_output = String::new();
-
+        
         for line in stdout_reader.lines() {
             let line = line?;
-            if line.contains("to-chk") || line.contains("bytes/sec") {
-                if let Some(ref cb) = self.progress_callback {
-                    cb(&line);
+            match () {
+                _ if line.contains("to-chk") || line.contains("bytes/sec") => {
+                    if let Some(ref cb) = self.progress_callback {
+                        cb(&line);
+                    }
                 }
-            } else if !line.starts_with(" ") && !line.is_empty() {
-                if let Some(ref cb) = self.file_sync_callback {
-                    cb(&line);
+                _ if !line.starts_with(" ") && 
+                    !line.is_empty() && 
+                    !line.starts_with("sent") &&
+                    !line.starts_with("total size is") &&
+                    !line.ends_with("sending incremental file list") &&
+                    !line.ends_with("./") => {
+                    if let Some(ref cb) = self.file_sync_callback {
+                        cb(&line);
+                    }
                 }
+                _ => {}
             }
         }
 
@@ -161,7 +191,7 @@ impl DirSyncHelper {
         }
 
         if !stderr_output.is_empty() {
-            println!("rsync stderr: {}", stderr_output.trim());
+            info_log!(DIR_SYNC_LOGGER_DOMAIN, format!("Rsync stderr: {}", stderr_output.trim()));
         }
 
         Ok(())
