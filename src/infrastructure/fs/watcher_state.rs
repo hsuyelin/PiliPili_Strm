@@ -1,4 +1,8 @@
-use std::fmt;
+use std::fmt::{
+    Display,
+    Formatter,
+    Result as FmtResult
+};
 
 /// Represents the operational state of a file system watcher
 ///
@@ -32,7 +36,7 @@ pub enum WatcherState {
     Stopped,
 }
 
-impl fmt::Display for WatcherState {
+impl Display for WatcherState {
 
     /// Formats the watcher state for display purposes
     ///
@@ -41,7 +45,7 @@ impl fmt::Display for WatcherState {
     ///
     /// # Returns
     /// `fmt::Result` indicating success or failure of the operation
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
         let state_str = match *self {
             WatcherState::Running => "Running",
             WatcherState::Paused => "Paused",

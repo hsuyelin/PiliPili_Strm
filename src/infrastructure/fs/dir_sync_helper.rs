@@ -1,13 +1,16 @@
 use std::{
     process::{Command, Stdio},
     io::{BufReader, BufRead},
-    path::Path,
+    path::Path
 };
 use anyhow::{Result, anyhow, Error};
 use regex::Regex;
 
 use crate::{info_log, debug_log, warn_log};
-use super::dir_sync_config::DirSyncConfig;
+use super::{
+    dir_sync_config::DirSyncConfig,
+    ssh_config::SSH_PASSWORD_OPTIONS
+};
 
 /// Domain identifier for file sync logs
 const DIR_SYNC_LOGGER_DOMAIN: &str = "[DIR-SYNC]";
@@ -178,6 +181,8 @@ impl DirSyncHelper {
             {
                 cmd.arg("-e").arg(ssh_arg);  // -e: specify remote shell to use
             }
+        } else {
+            cmd.arg("-e").arg(SSH_PASSWORD_OPTIONS);
         }
 
         // Add --delete flag if in strict mode (removes files in dest not present in source)
@@ -208,9 +213,9 @@ impl DirSyncHelper {
                 cmd.arg(format!("--exclude={}", regex));
             } else {
                 warn_log!(
-                DIR_SYNC_LOGGER_DOMAIN, 
-                format!("Invalid regex pattern '{}'", regex)
-            );
+                    DIR_SYNC_LOGGER_DOMAIN, 
+                    format!("Invalid regex pattern '{}'", regex)
+                );
             }
         }
 

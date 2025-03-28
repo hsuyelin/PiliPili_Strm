@@ -1,5 +1,19 @@
 use serde::Serialize;
 
+/// Default SSH password authentication options with reduced security checks.
+///
+/// This configuration string disables two security features for SSH connections:
+/// - Host key verification (`StrictHostKeyChecking=no`)
+/// - Known hosts file (`UserKnownHostsFile=/dev/null`)
+///
+/// # Security Considerations
+/// Using these options makes the connection vulnerable to man-in-the-middle attacks.
+/// Only use this for:
+/// - Testing environments
+/// - Trusted private networks
+/// - Cases where host key verification isn't practical
+pub const SSH_PASSWORD_OPTIONS: &str = "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null";
+
 /// Configuration for SSH connection parameters.
 ///
 /// This struct encapsulates all necessary parameters to establish an SSH connection,
@@ -130,9 +144,12 @@ impl SshConfig {
                 ))
             }
             (None, Some(_)) => {
+                // ⚠️ Using password-based authentication is not recommended. 
+                // Use SSH key-based authentication instead.
                 Some(format!(
-                    "ssh -p {}",
-                    self.port.unwrap_or(22)
+                    "ssh -p {} {}",
+                    self.port.unwrap_or(22),
+                    SSH_PASSWORD_OPTIONS
                 ))
             }
             (Some(key), Some(_)) => {

@@ -88,12 +88,15 @@ fn sync_directories(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_logger();
 
-    let watch_path = PathHelper::expand_tilde(PathBuf::from("~/Downloads/Tests"));
-    let sync_path = PathHelper::expand_tilde(PathBuf::from("~/Downloads/Sync_Tests"));
+    let watch_path = PathHelper::expand_tilde(
+        PathBuf::from("~/Downloads/Tests")
+    );
+    let sync_path = PathHelper::expand_tilde(
+        PathBuf::from("~/Downloads/Sync_Tests")
+    );
 
     ensure_test_directory(&watch_path)?;
-    ensure_test_directory(&sync_path)?;
-
+    
     let mut watcher = configure_watcher(
         &watch_path,
         Duration::from_secs(5)
