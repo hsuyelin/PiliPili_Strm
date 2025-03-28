@@ -189,6 +189,30 @@ impl DirSyncHelper {
         let dest_path = self.config.get_destination().get_path();
         cmd.arg(&source_path).arg(&dest_path);
 
+        self.print_sync_command(&mut cmd);
+
+        Ok(cmd)
+    }
+
+    /// Formats and logs the rsync command being executed for debugging purposes.
+    ///
+    /// This function reconstructs the command string from the `Command` object,
+    /// properly handling quoted arguments (especially the SSH `-e` option) to
+    /// produce an executable-equivalent string for logging.
+    ///
+    /// # Arguments
+    /// * `cmd` - The `Command` object representing the rsync operation
+    ///
+    /// # Example Output
+    /// ```text
+    /// rsync -a -v -e "ssh -i ~/.ssh/id_rsa -p 22" /source/path/ user@host:/dest/path
+    /// ```
+    ///
+    /// # Notes
+    /// - Special handling for SSH `-e` option to keep its argument quoted
+    /// - Other arguments are joined with simple spaces
+    /// - Output is logged at debug level with DIR_SYNC domain
+    fn print_sync_command(&self, cmd: &mut Command) {
         // Format command for logging
         let mut cmd_parts = vec![cmd.get_program().to_string_lossy().into_owned()];
         let args: Vec<_> = cmd
@@ -207,8 +231,6 @@ impl DirSyncHelper {
         }
         let cmd_string = cmd_parts.join(" ");
         debug_log!(DIR_SYNC_LOGGER_DOMAIN, format!("Executing command: {}", cmd_string));
-
-        Ok(cmd)
     }
 
     /// Processes rsync output streams and invokes callbacks.
