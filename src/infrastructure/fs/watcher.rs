@@ -40,20 +40,28 @@ pub struct FileWatcher {
 
     /// The path being watched (expanded with tilde if needed)
     path: PathBuf,
+
     /// Underlying notify watcher instance
     watcher: Option<RecommendedWatcher>,
+
     /// Current operational state
     state: WatcherState,
+
     /// Callback for processing filesystem events
     callback: Option<FileWatcherCallback>,
+
     /// Debounce period for event processing
     debounce_time: Duration,
+
     /// Channel sender for raw filesystem events
     event_tx: Sender<Event>,
+
     /// Channel receiver for event processing
     event_rx: Option<Receiver<Event>>,
+
     /// Handle to the async event processing task
     worker_handle: Option<tokio::task::JoinHandle<()>>,
+
     /// Atomic flag for graceful shutdown
     should_exit: Arc<AtomicBool>,
 }

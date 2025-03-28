@@ -11,10 +11,13 @@ pub enum LogRotation {
 
     /// Rotate log files every minute
     Minutely,
+
     /// Rotate log files every hour
     Hourly,
+
     /// Rotate log files every day
     Daily,
+
     /// Never rotate log files
     Never,
 }

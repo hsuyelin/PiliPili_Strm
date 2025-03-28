@@ -20,10 +20,13 @@ pub struct LoggerBuilder {
 
     /// Maximum log level to capture (inclusive)
     max_level: LogLevel,
+
     /// Directory where log files will be stored
     directory: String,
+
     /// Prefix for log file names
     file_name_prefix: String,
+
     /// Rotation strategy for log files
     rolling: LogRotation,
 }

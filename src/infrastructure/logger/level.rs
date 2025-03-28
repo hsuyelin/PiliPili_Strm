@@ -11,12 +11,16 @@ pub enum LogLevel {
 
     /// Critical errors that require immediate attention
     Error,
+
     /// Warning messages for potentially harmful situations
     Warn,
+
     /// General information about program execution
     Info,
+
     /// Detailed information useful for debugging
     Debug,
+
     /// Very detailed information for tracing program flow
     Trace
 }
