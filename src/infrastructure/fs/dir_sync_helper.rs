@@ -12,18 +12,34 @@ use super::dir_sync_config::DirSyncConfig;
 /// Domain identifier for file sync logs
 const DIR_SYNC_LOGGER_DOMAIN: &str = "[DIR-SYNC]";
 
+/// Callback type for progress updates
 type ProgressCallback = Box<dyn Fn(&str) + Send + 'static>;
+
+/// Callback type for file sync notifications
 type FileSyncCallback = Box<dyn Fn(&str) + Send + 'static>;
 
+/// Helper for performing directory synchronization using rsync.
+///
+/// This struct manages the complete synchronization workflow including:
+/// - Pre-sync validation checks
+/// - Rsync command construction
+/// - Process execution and output handling
+/// - Progress and file sync callbacks
 pub struct DirSyncHelper {
 
+    /// Configuration for the sync operation
     config: DirSyncConfig,
+
+    /// Optional callback for progress updates
     progress_callback: Option<ProgressCallback>,
+
+    /// Optional callback for file sync notifications
     file_sync_callback: Option<FileSyncCallback>,
 }
 
 impl DirSyncHelper {
 
+    /// Creates a new `DirSyncHelper` with the given configuration.
     pub fn new(config: DirSyncConfig) -> Self {
         DirSyncHelper {
             config,
@@ -32,14 +48,30 @@ impl DirSyncHelper {
         }
     }
 
+    /// Sets a callback for receiving progress updates during sync.
+    ///
+    /// The callback will receive strings containing rsync's progress output.
     pub fn set_progress_callback(&mut self, callback: ProgressCallback) {
         self.progress_callback = Some(callback);
     }
 
+    /// Sets a callback for receiving file sync notifications.
+    ///
+    /// The callback will receive strings containing names of files being synced.
     pub fn set_file_sync_callback(&mut self, callback: FileSyncCallback) {
         self.file_sync_callback = Some(callback);
     }
 
+    /// Performs the directory synchronization.
+    ///
+    /// # Steps
+    /// 1. Validates guard file (if configured)
+    /// 2. Checks source directory existence
+    /// 3. Builds and executes rsync command
+    /// 4. Processes output with callbacks
+    ///
+    /// # Errors
+    /// Returns `anyhow::Error` if any step fails or rsync returns non-zero status.
     pub fn sync(&self) -> Result<(), Error> {
         self.check_guard_file()?;
         self.check_source_dir()?;
@@ -65,6 +97,10 @@ impl DirSyncHelper {
         Ok(())
     }
 
+    /// Validates the guard file if configured.
+    ///
+    /// # Errors
+    /// Returns error if guard file is required but doesn't exist.
     fn check_guard_file(&self) -> Result<(), Error> {
         if let Some(guard) = &self.config.get_guard_file() {
             if !Path::new(guard).exists() {
@@ -74,46 +110,65 @@ impl DirSyncHelper {
         Ok(())
     }
 
+    /// Validates the source directory exists (for local paths).
+    ///
+    /// # Errors
+    /// Returns error if source path doesn't exist (only for local paths).
     fn check_source_dir(&self) -> Result<(), Error> {
         let source_path = self.config.get_source().get_path();
-        if self.config.get_source().ssh_config().is_none() && 
+        if self.config.get_source().ssh_config().is_none() &&
             !Path::new(&source_path).exists() {
             return Err(anyhow!("Source path '{}' does not exist, sync aborted.", source_path));
         }
         Ok(())
     }
 
+    /// Constructs the rsync command based on configuration.
+    ///
+    /// # Returns
+    /// Configured `Command` ready for execution.
+    ///
+    /// # Notes
+    /// - Handles both local and remote paths
+    /// - Applies to include/exclude filters
+    /// - Configures strict mode if enabled
+    /// - Logs the final command for debugging
     fn build_rsync_command(&self) -> Result<Command, Error> {
         let mut cmd = Command::new("rsync");
-        cmd.arg("-a")
-            .arg("--info=progress2")
-            .arg("-v");
+        cmd.arg("-a")            // Archive mode (preserve attributes)
+            .arg("--info=progress2")  // Show progress information
+            .arg("-v");          // Verbose output
 
+        // Configure SSH options if needed
         let source_ssh = self.config.get_source().to_rsync_arg();
         let dest_ssh = self.config.get_destination().to_rsync_arg();
 
+        // Prefer destination SSH config if both exist
         if let Some(ssh_arg) = dest_ssh {
             cmd.arg("-e").arg(ssh_arg);
         } else if let Some(ssh_arg) = source_ssh {
             cmd.arg("-e").arg(ssh_arg);
         }
 
+        // Configure strict mode (delete extraneous files)
         if self.config.get_strict_mode() {
             cmd.arg("--delete");
         }
 
+        // Handle include/exclude filters
         if !self.config.get_include_suffixes().is_empty() {
-            cmd.arg("--include=*/");
+            cmd.arg("--include=*/");  // Always include directories
             for suffix in &self.config.get_include_suffixes() {
                 cmd.arg(format!("--include=*.{}", suffix));
             }
-            cmd.arg("--exclude=*");
+            cmd.arg("--exclude=*");  // Exclude everything else
         } else if !self.config.get_exclude_suffixes().is_empty() {
             for suffix in &self.config.get_exclude_suffixes() {
                 cmd.arg(format!("--exclude=*.{}", suffix));
             }
         }
 
+        // Handle regex excludes
         if let Some(regex) = &self.config.get_exclude_regex() {
             if let Ok(_re) = Regex::new(regex.as_str()) {
                 cmd.arg(format!("--exclude={}", regex.as_str()));
@@ -129,10 +184,12 @@ impl DirSyncHelper {
             }
         }
 
+        // Set source and destination paths
         let source_path = self.config.get_source().get_path();
         let dest_path = self.config.get_destination().get_path();
         cmd.arg(&source_path).arg(&dest_path);
 
+        // Format command for logging
         let mut cmd_parts = vec![cmd.get_program().to_string_lossy().into_owned()];
         let args: Vec<_> = cmd
             .get_args()
@@ -154,6 +211,16 @@ impl DirSyncHelper {
         Ok(cmd)
     }
 
+    /// Processes rsync output streams and invokes callbacks.
+    ///
+    /// # Arguments
+    /// * `stdout` - Child process stdout pipe
+    /// * `stderr` - Child process stderr pipe
+    ///
+    /// # Behavior
+    /// - Progress updates are sent to progress callback
+    /// - File sync notifications are sent to file sync callback
+    /// - Error output is logged
     fn process_output(
         &self,
         stdout: std::process::ChildStdout,
@@ -162,21 +229,24 @@ impl DirSyncHelper {
         let stdout_reader = BufReader::new(stdout);
         let stderr_reader = BufReader::new(stderr);
         let mut stderr_output = String::new();
-        
+
+        // Process stdout line by line
         for line in stdout_reader.lines() {
             let line = line?;
             match () {
                 _ if line.contains("to-chk") || line.contains("bytes/sec") => {
+                    // Progress information
                     if let Some(ref cb) = self.progress_callback {
                         cb(&line);
                     }
                 }
-                _ if !line.starts_with(" ") && 
-                    !line.is_empty() && 
+                _ if !line.starts_with(" ") &&
+                    !line.is_empty() &&
                     !line.starts_with("sent") &&
                     !line.starts_with("total size is") &&
                     !line.ends_with("sending incremental file list") &&
                     !line.ends_with("./") => {
+                    // File being synced
                     if let Some(ref cb) = self.file_sync_callback {
                         cb(&line);
                     }
@@ -185,11 +255,13 @@ impl DirSyncHelper {
             }
         }
 
+        // Collect stderr output
         for line in stderr_reader.lines() {
             stderr_output.push_str(&line?);
             stderr_output.push('\n');
         }
 
+        // Log any stderr output
         if !stderr_output.is_empty() {
             info_log!(DIR_SYNC_LOGGER_DOMAIN, format!("Rsync stderr: {}", stderr_output.trim()));
         }

@@ -1,18 +1,33 @@
-//! File system watching infrastructure
+//! File system watching and synchronization infrastructure.
 //!
-//! This module provides a complete solution for monitoring filesystem changes with:
-//! - Cross-platform support
-//! - Configurable watching behavior
-//! - Thread-safe operation
-//! - State management
+//! This module provides a comprehensive solution for monitoring filesystem changes
+//! and performing directory synchronization with the following features:
 //!
-//! # Core Components
-//! - [`Watcher`] - The main filesystem watcher implementation
-//! - [`WatcherState`] - Tracks the operational state (Running/Paused/Stopped)
-//! - [`FileWatcherCallback`] - Handles event notifications
-//! - [`FileWatchable`] - Trait defining the watcher interface
-//! - [`PathHelper`] - Utilities for path manipulation
-//! - [`FileHelper`] - Utilities for file manipulation
+//! - **Cross-platform** monitoring of filesystem events
+//! - **Configurable** watching behaviors and filters
+//! - **Thread-safe** operation with proper state management
+//! - **SSH support** for remote file operations
+//! - **Synchronization** utilities for directory mirroring
+//!
+//! # Architecture Overview
+//!
+//! The system is organized into several core components:
+//!
+//! ## Watching Infrastructure
+//! - [`Watcher`] - Main filesystem watcher implementation
+//! - [`WatcherState`] - Tracks operational state (Running/Paused/Stopped)
+//! - [`FileWatcherCallback`] - Event notification handler trait
+//! - [`FileWatchable`] - Common interface for watcher implementations
+//!
+//! ## Utilities
+//! - [`PathHelper`] - Cross-platform path manipulation utilities
+//! - [`FileHelper`] - Filesystem operation utilities
+//!
+//! ## Synchronization
+//! - [`DirSyncConfig`] - Configuration for directory synchronization
+//! - [`DirSyncHelper`] - Main synchronization executor
+//! - [`DirLocation`] - Local/remote path representation
+//! - [`SshConfig`] - SSH connection configuration
 //! 
 pub mod watcher;
 pub mod watcher_state;
