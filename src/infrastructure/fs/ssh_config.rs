@@ -11,9 +11,6 @@ pub struct SshConfig {
     /// SSH username (defaults to "root" if not specified)
     username: Option<String>,
 
-    /// Path to private key file for authentication
-    key_path: Option<String>,
-
     /// Password for authentication (use with caution)
     password: Option<String>,
 
@@ -22,6 +19,9 @@ pub struct SshConfig {
 
     /// SSH port number (defaults to 22 if not specified)
     port: Option<u16>,
+
+    /// Path to private key file for authentication
+    key_path: Option<String>
 }
 
 impl Default for SshConfig {
@@ -34,10 +34,10 @@ impl Default for SshConfig {
     fn default() -> Self {
         SshConfig {
             username: None,
-            key_path: None,
             password: None,
             ip: "127.0.0.1".to_string(),
-            port: None
+            port: None,
+            key_path: None
         }
     }
 }
