@@ -256,18 +256,13 @@ impl DirSyncHelper {
         for line in stdout_reader.lines() {
             let line = line?;
             match () {
-                _ if line.contains("to-chk") || line.contains("bytes/sec") => {
+                _ if Self::check_file_sync_progress(&line) => {
                     // Progress information
                     if let Some(ref cb) = self.progress_callback {
                         cb(&line);
                     }
                 }
-                _ if !line.starts_with(" ") &&
-                    !line.is_empty() &&
-                    !line.starts_with("sent") &&
-                    !line.starts_with("total size is") &&
-                    !line.ends_with("sending incremental file list") &&
-                    !line.ends_with("./") => {
+                _ if Self::check_file_sync_line(&line) => {
                     // File being synced
                     if let Some(ref cb) = self.file_sync_callback {
                         cb(&line);
@@ -289,5 +284,38 @@ impl DirSyncHelper {
         }
 
         Ok(())
+    }
+
+    /// Determines if a line from rsync output represents progress information.
+    ///
+    /// This checks for rsync's progress format that shows transfer statistics,
+    /// typically containing either "to-chk" (remaining files) or "bytes/sec" (transfer speed).
+    ///
+    /// # Arguments
+    /// * `line` - A line of output from the rsync command
+    ///
+    /// # Returns
+    /// `true` if the line contains progress information, `false` otherwise
+    fn check_file_sync_progress(line: &String) -> bool {
+        (line.contains("to-chk") || line.contains("bytes/sec")) &&
+            !(line.contains("sent") && line.contains("received"))
+    }
+
+    /// Determines if a line from rsync output represents a file being synced.
+    ///
+    /// Filters out summary lines, empty lines, and other non-file output from rsync.
+    ///
+    /// # Arguments
+    /// * `line` - A line of output from the rsync command
+    ///
+    /// # Returns
+    /// `true` if the line represents a file being transferred, `false` otherwise
+    fn check_file_sync_line(line: &String) -> bool {
+        !line.starts_with(" ") &&
+            !line.is_empty() &&
+            !line.starts_with("total size is") &&
+            !(line.contains("sent") && line.contains("received")) &&
+            !line.ends_with("sending incremental file list") &&
+            !line.ends_with("./")
     }
 }

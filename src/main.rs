@@ -40,7 +40,7 @@ fn setup_sync_callback(
             info_log!(format!("Sync failed: {}", e));
         } else {
             info_log!(format!(
-                "Synced changes from {} to {}",
+                "Synced {} => {} complete!",
                 watch_path.display(),
                 sync_path_clone.display()
             ));
@@ -61,11 +61,11 @@ fn sync_directories(
         .with_strict_mode(false)
         .with_include_suffixes(vec!["strm"])
         .with_exclude_suffixes(vec!["txt"]);
-    
+
     info_log!(format!("Dir sync config: {}", config));
-    
+
     let mut sync_helper = DirSyncHelper::new(config);
-    
+
     sync_helper.set_progress_callback(Box::new(move |progress| {
         info_log!(format!("Sync progress: {}", progress));
     }));
@@ -78,14 +78,9 @@ fn sync_directories(
         );
         info_log!(message);
     }));
-    
+
     sync_helper.sync()?;
-    info_log!(format!(
-        "Sync {} => {} complete", 
-        source.to_string_lossy(),
-        destination.to_string_lossy()
-    ));
-    
+
     Ok(())
 }
 
