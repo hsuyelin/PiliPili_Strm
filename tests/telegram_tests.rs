@@ -45,7 +45,7 @@ mod tests {
         
         let photo_msg = PhotoMessage {
             photo: PhotoInput::Url("https://cdn.pixabay.com/photo/2023/12/07/11/11/girl-8435340_1280.png".to_string()),
-            caption: Some("图片的描述文案".to_string())
+            caption: Some("description of photo".to_string())
         };
 
         let response = TelegramClient::send_photo(photo_msg).await;
