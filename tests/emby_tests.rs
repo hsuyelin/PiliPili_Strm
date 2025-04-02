@@ -3,10 +3,14 @@ mod tests {
     
     use tokio;
 
-    use pilipili_strm::infrastructure::{
-        api::*,
-        network::*,
-        logger::{builder::LoggerBuilder, LogLevel},
+    use pilipili_strm::{
+        core::{
+            api::*
+        },
+        infrastructure::{
+            network::*,
+            logger::{builder::LoggerBuilder, LogLevel},
+        }
     };
 
     #[tokio::test]

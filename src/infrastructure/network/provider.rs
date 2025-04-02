@@ -13,7 +13,8 @@ use super::{
     http_method::HttpMethod,
     plugin::NetworkPlugin,
     task::NetworkTask,
-    target::NetworkTarget
+    target::NetworkTarget,
+    extension::RequestFormExt
 };
 
 /// A static HTTP client instance configured with default settings.
@@ -107,6 +108,9 @@ impl NetworkProvider {
             }
             NetworkTask::RequestParameters(params) => {
                 request = request.query(&params);
+            }
+            NetworkTask::RequestForm(params) => {
+                request = request.with_multipart(params).await;
             }
         }
 

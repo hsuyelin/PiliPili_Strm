@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use crate::infrastructure::{
-    network::{
-        HttpMethod, 
-        NetworkTask, 
-        NetworkTarget
-    },
-    config::Config
+use crate::core::config::Config;
+use crate::infrastructure::network::{
+    HttpMethod,
+    NetworkTarget,
+    NetworkTask
 };
 
 pub enum EmbyAPI {
