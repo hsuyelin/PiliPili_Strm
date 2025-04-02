@@ -19,10 +19,10 @@ use ctrlc;
 
 use crate::{error_log, info_log, warn_log};
 use super::{
-    watcher_state::WatcherState,
-    watcher_callback::FileWatcherCallback,
+    state::WatcherState,
+    callback::FileWatcherCallback,
     watchable::FileWatchable,
-    path_helper::PathHelper,
+    super::file::PathHelper,
 };
 
 /// Domain identifier for file watcher logs

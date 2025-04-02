@@ -8,7 +8,7 @@ use regex::Regex;
 
 use crate::{info_log, debug_log, warn_log};
 use super::{
-    dir_sync_config::DirSyncConfig,
+    sync_config::DirSyncConfig,
     ssh_config::SSH_PASSWORD_OPTIONS
 };
 
