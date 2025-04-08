@@ -1,35 +1,30 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::fmt::{
-    Display,
-    Formatter,
-    Result as FmtResult,
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    fmt::{Display, Formatter, Result as FmtResult}
 };
 
 use serde::Serialize;
 
 use crate::infrastructure::network::NetworkTask;
 
+/// Represents the input source for a photo message.
+///
+/// This enum supports both remote URLs and local file paths as photo sources,
+/// providing flexibility in how photos are supplied to the Telegram API.
 #[derive(Debug, Clone)]
 pub enum PhotoInput {
-    
+
+    /// A photo from a remote URL
     Url(String),
 
+    /// A photo from a local file path
     FilePath(PathBuf),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct PhotoMessage {
-
-    #[serde(skip_serializing)]
-    pub photo: PhotoInput,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub caption: Option<String>,
 }
 
 impl Display for PhotoInput {
 
+    /// Formats the photo input for display purposes.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             PhotoInput::Url(url) => write!(f, "[URL] {}", url),
@@ -38,8 +33,35 @@ impl Display for PhotoInput {
     }
 }
 
+/// Represents a photo message to be sent via Telegram API.
+///
+/// Contains the photo source and an optional caption with MarkdownV2 formatting support.
+#[derive(Debug, Clone, Serialize)]
+pub struct PhotoMessage {
+
+    /// The photo source (local file or URL)
+    #[serde(skip_serializing)]
+    pub photo: PhotoInput,
+
+    /// Optional caption for the photo with MarkdownV2 formatting
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub caption: Option<String>,
+}
+
 impl PhotoMessage {
 
+    /// Converts the photo message into a network task for sending.
+    ///
+    /// # Arguments
+    /// * `chat_id` - The target chat ID for the message
+    ///
+    /// # Returns
+    /// A `NetworkTask` ready for execution by the network infrastructure.
+    ///
+    /// # Notes
+    /// - For file paths, creates a multipart request with file upload
+    /// - For URLs, creates a standard multipart request
+    /// - Automatically sets parse mode to MarkdownV2
     pub fn into_task(self, chat_id: String) -> NetworkTask {
         let mut fields = HashMap::new();
         fields.insert("chat_id".to_string(), chat_id);
@@ -51,27 +73,51 @@ impl PhotoMessage {
 
         match self.photo {
             PhotoInput::FilePath(path) => {
-                Some(vec![(path.to_string_lossy().into_owned(), "photo".to_string())])
+                let files = vec![
+                    (path.to_string_lossy().into_owned(), "photo".to_string())
+                ];
+                NetworkTask::RequestMultipartWithFiles(fields, files)
             }
             PhotoInput::Url(url) => {
                 fields.insert("photo".to_string(), url);
-                None
+                NetworkTask::RequestMultipart(fields)
             }
-        };
+        }
+    }
 
-        NetworkTask::RequestForm(fields)
+    /// Creates a new photo message from a file path.
+    pub fn from_file(path: impl Into<PathBuf>) -> Self {
+        Self {
+            photo: PhotoInput::FilePath(path.into()),
+            caption: None,
+        }
+    }
+
+    /// Creates a new photo message from a URL.
+    pub fn from_url(url: impl Into<String>) -> Self {
+        Self {
+            photo: PhotoInput::Url(url.into()),
+            caption: None,
+        }
+    }
+
+    /// Sets the caption for the photo message.
+    pub fn with_caption(mut self, caption: impl Into<String>) -> Self {
+        self.caption = Some(caption.into());
+        self
     }
 }
 
 impl Display for PhotoMessage {
 
+    /// Formats the photo message for display purposes.
+    ///
+    /// Shows the photo source and optional caption if present.
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         write!(f, "PhotoMessage(photo: {}", self.photo)?;
-
         if let Some(caption) = &self.caption {
             write!(f, ", caption: {}", caption)?;
         }
-
         write!(f, ")")
     }
 }

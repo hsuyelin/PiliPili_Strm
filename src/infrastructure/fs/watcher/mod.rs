@@ -5,14 +5,7 @@
 //! - Configurable event filtering
 //! - State management for monitoring lifecycle
 //! - Extensible callback system
-//!
-//! # Core Components
-//!
-//! - [`Watcher`] - Main filesystem monitoring implementation (`watcher` module)
-//! - [`WatcherState`] - Monitoring state management (`state` module)
-//! - [`Watchable`] - Trait defining monitoring interface (`watchable` module)
-//! - [`Callback`] - Event notification system (`callback` module)
-
+//! 
 pub mod callback;
 pub mod state;
 pub mod watchable;

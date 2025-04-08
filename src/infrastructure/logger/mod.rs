@@ -5,7 +5,7 @@
 //! - Log rotation support
 //! - Builder pattern for easy configuration
 //! - Convenient macros for logging
-
+//! 
 pub mod builder;
 pub mod rotation;
 pub mod level;

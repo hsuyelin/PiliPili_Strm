@@ -16,5 +16,8 @@ pub enum NetworkTask {
     RequestParameters(HashMap<String, String>),
 
     /// A request with form data (multipart or URL-encoded)
-    RequestForm(HashMap<String, String>)
+    RequestMultipart(HashMap<String, String>),
+
+    /// A request with form data including files (multipart/form-data)
+    RequestMultipartWithFiles(HashMap<String, String>, Vec<(String, String)>)
 }

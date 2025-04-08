@@ -109,8 +109,11 @@ impl NetworkProvider {
             NetworkTask::RequestParameters(params) => {
                 request = request.query(&params);
             }
-            NetworkTask::RequestForm(params) => {
+            NetworkTask::RequestMultipart(params) => {
                 request = request.with_multipart(params).await;
+            }
+            NetworkTask::RequestMultipartWithFiles(params, files) => {
+                request = request.with_multipart_files(params.clone(), files.clone()).await;
             }
         }
 
