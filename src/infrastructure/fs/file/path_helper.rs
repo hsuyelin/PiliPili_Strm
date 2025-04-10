@@ -1,9 +1,23 @@
-use std::path::{
-    Path, 
-    PathBuf
+use std::{
+    path::{Path, PathBuf},
+    fs::{metadata},
+    io::{Error as IoError, ErrorKind as IoErrorKind},
 };
 
 use dirs;
+
+/// Enum representing the type of file
+///
+/// It includes two variants: `File` (file) and `Directory` (directory).
+#[derive(Debug)]
+pub enum FileType {
+
+    /// Represents a file
+    File,
+
+    /// Represents a directory
+    Directory,
+}
 
 /// A helper struct for common path operations with cross-platform support
 pub struct PathHelper;
@@ -165,5 +179,53 @@ impl PathHelper {
             }
         }
         result
+    }
+
+    /// Determines the type of the given path (file or directory).
+    ///
+    /// # Parameters
+    ///
+    /// - `path`: A type that can be converted into a `Path` (e.g., `String`, `&str`, `PathBuf`, etc.).
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result`:
+    ///
+    /// - `Ok(FileType::File)` if it is a file.
+    /// - `Ok(FileType::Directory)` if it is a directory.
+    /// - `Err(io::Error)` if an error occurs or the path is neither a file nor a directory (e.g., a symbolic link).
+    ///
+    /// # Errors
+    ///
+    /// If the path does not exist or another error occurs, it returns `Err(io::Error)`.
+    pub fn file_type(path: impl AsRef<Path>) -> Result<FileType, IoError> {
+        match metadata(path) {
+            Ok(metadata) => {
+                if metadata.is_file() {
+                    Ok(FileType::File)
+                } else if metadata.is_dir() {
+                    Ok(FileType::Directory)
+                } else {
+                    Err(IoError::new(IoErrorKind::Other, "Unknown file type"))
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Returns `true` if the path is a regular file, `false` otherwise (ignores errors).
+    pub fn is_file(path: impl AsRef<Path>) -> bool {
+        match metadata(path) {
+            Ok(metadata) => metadata.is_file(),
+            Err(_) => false,
+        }
+    }
+
+    /// Returns `true` if the path is a directory, `false` otherwise (ignores errors).
+    pub fn is_dir(path: impl AsRef<Path>) -> bool {
+        match metadata(path) {
+            Ok(metadata) => metadata.is_dir(),
+            Err(_) => false,
+        }
     }
 }

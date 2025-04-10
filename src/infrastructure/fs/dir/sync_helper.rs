@@ -118,6 +118,9 @@ impl DirSyncHelper {
     /// # Errors
     /// Returns error if source path doesn't exist (only for local paths).
     fn check_source_dir(&self) -> Result<(), Error> {
+        if self.config.get_strict_mode() {
+            return Ok(());
+        }
         let source_path = self.config.get_source().get_path();
         if self.config.get_source().ssh_config().is_none() &&
             !Path::new(&source_path).exists() {
@@ -168,11 +171,11 @@ impl DirSyncHelper {
 
         // Add common rsync arguments:
         // -a: archive mode (recursive, preserve permissions, etc.)
-        // --info=progress2: show progress information
         // -v: verbose output
+        // --info=progress2: show progress information
         cmd.arg("-a")
-            .arg("--info=progress2")
-            .arg("-v");
+            .arg("-v")
+            .arg("--info=progress2");
 
         // Add SSH configuration if not using sshpass
         if !use_sshpass {
